@@ -1,0 +1,102 @@
+# Insyd Notification System — System Design (POC → Scale)
+
+## Introduction
+Design a notification system that keeps users engaged with timely updates (likes, comments, follows, new posts, messages). POC targets ~100 DAUs with a path to 1M DAUs.
+
+## System Overview
+Core responsibilities:
+- Accept **events** from the app (user actions).
+- Generate **notifications** for impacted users.
+- Persist and deliver **in-app notifications** (POC). Email/push at scale.
+
+## Architecture (High Level)
+
+```mermaid
+flowchart LR
+  subgraph Client[Frontend (React)]
+    A[Trigger Events]\nPOST /events
+    B[Poll Notifications]\nGET /notifications/:userId
+  end
+
+  subgraph API[Notification Service (Express)]
+    C[/Events API/]
+    D[/Notifications API/]
+    E[In-memory Event Queue]
+    F[Processor]
+    G[(MongoDB)]
+  end
+
+  A --> C
+  B --> D
+  C --> E
+  E --> F
+  F --> G
+  D --> G
+```
+
+## Data Design
+
+### Users
+```json
+{
+  "username": "alice",
+  "email": "alice@example.com",
+  "preferences": { "inApp": true }
+}
+```
+
+### Events
+```json
+{
+  "type": "like | comment | follow | new_post | message",
+  "sourceUserId": "<ObjectId>",
+  "targetUserId": "<ObjectId>",
+  "data": { "postId": "p1", "text": "Nice!" },
+  "createdAt": "ISO"
+}
+```
+
+### Notifications
+```json
+{
+  "userId": "<ObjectId>",
+  "type": "like | comment | follow | new_post | message",
+  "content": "Alice liked your post",
+  "status": "unread | read",
+  "createdAt": "ISO"
+}
+```
+
+Indexes:
+- `notifications`: `{ userId: 1, createdAt: -1 }`
+- `users`: `{ username: 1 } unique`
+- `events`: `{ createdAt: -1 }`
+
+## Execution Flow
+1. Client publishes an **event** to `/api/events`.
+2. API enqueues event into an **in-memory queue**.
+3. A **processor** consumes events and persists **notifications** to MongoDB.
+4. Client **polls** `/api/notifications/:userId` every N seconds and renders results.
+
+## Scale & Performance (100 DAUs → 1M DAUs)
+- **POC (100 DAUs)**: single Express instance, single MongoDB, in-memory queue.
+- **Step-up**: introduce **Redis/Kafka/RabbitMQ** for durable queues; **worker** processes for event processing.
+- **DB**: sharding by `userId`, add read replicas; heavy users get per-user rate limiting.
+- **Delivery**: migrate from polling to **WebSockets/SSE** for near real-time.
+- **Fan-out**: handle multi-recipient events (e.g., post by user → followers) with async fan-out workers.
+- **Backpressure**: apply retry/DLQ, circuit breakers, idempotency keys for events.
+- **Observability**: logs, metrics, tracing; alert on queue depth/consumer lag.
+
+## Trade-Offs
+- **Polling vs WebSockets**: Polling is simpler (POC), but adds latency and load. WebSockets reduce latency, but increase infra complexity.
+- **In-memory queue**: Fast & simple, but volatile; replace with Kafka/Redis Streams for durability & scale.
+- **No caching in POC**: Simpler; at scale add read-through cache for notification feeds.
+
+## Limitations
+- Single server bottleneck.
+- No auth or personalization in POC.
+- Best-effort ordering (eventual consistency).
+
+## Conclusion
+The POC demonstrates the core path from events → notifications, with a clean evolution plan to production-scale architecture.
+ 

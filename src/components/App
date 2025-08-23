@@ -1,0 +1,93 @@
+
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import NotificationList from './components/NotificationList.jsx'
+import EventForm from './components/EventForm.jsx'
+import { listUsers, bootstrapUsers, getNotifications, postEvent } from './api.js'
+
+export default function App() {
+  const [users, setUsers] = useState([])
+  const [currentUserId, setCurrentUserId] = useState('')
+  const [notifications, setNotifications] = useState([])
+  const [lastFetchedAt, setLastFetchedAt] = useState('')
+  const timerRef = useRef(null)
+
+  // Load or bootstrap users
+  useEffect(() => {
+    async function init() {
+      let u = await listUsers()
+      if (!u?.length) {
+        await bootstrapUsers()
+        u = await listUsers()
+      }
+      setUsers(u)
+      if (u?.length && !currentUserId) setCurrentUserId(u[0]._id)
+    }
+    init()
+  }, [])
+
+  const currentUser = useMemo(() => users.find(u => u._id === currentUserId), [users, currentUserId])
+
+  // Poll notifications
+  useEffect(() => {
+    if (!currentUserId) return
+    async function tick() {
+      const items = await getNotifications(currentUserId, lastFetchedAt || undefined)
+      if (items?.length) {
+        // if `after` used, API returns newest first; prepend to existing feed
+        const merged = lastFetchedAt ? [...items, ...notifications] : items
+        setNotifications(merged)
+        setLastFetchedAt(new Date().toISOString())
+      }
+    }
+    // initial fetch (most recent 50)
+    ;(async () => {
+      const items = await getNotifications(currentUserId)
+      setNotifications(items)
+      setLastFetchedAt(new Date().toISOString())
+    })()
+    // start polling
+    timerRef.current = setInterval(tick, 4000)
+    return () => clearInterval(timerRef.current)
+  }, [currentUserId])
+
+  async function handleSubmitEvent(payload) {
+    await postEvent(payload)
+    // Let the poller pick it up; also optimistic fetch now
+    const items = await getNotifications(payload.targetUserId, undefined)
+    if (payload.targetUserId === currentUserId) {
+      setNotifications(items)
+      setLastFetchedAt(new Date().toISOString())
+    }
+  }
+
+  return (
+    <div className="container">
+      <div className="card">
+        <h1>Insyd Notifications POC</h1>
+        <div className="row">
+          <div className="col">
+            <label>Acting as (current user)</label>
+            <select value={currentUserId} onChange={e => setCurrentUserId(e.target.value)}>
+              {users.map(u => <option key={u._id} value={u._id}>{u.username}</option>)}
+            </select>
+          </div>
+          <div className="col">
+            <p className="small">This demo uses polling every ~4s. Try sending a <em>comment</em> or <em>like</em> from one user to another.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="row">
+        <div className="col">
+          <EventForm users={users} currentUserId={currentUserId} onSubmit={handleSubmitEvent} />
+        </div>
+        <div className="col">
+          <div className="card">
+            <h2>Notifications — {currentUser?.username || '...'}</h2>
+            <NotificationList items={notifications} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,16 @@
+
+import React from 'react'
+
+export default function NotificationList({ items }) {
+  if (!items?.length) return <p className="small">No notifications yet.</p>
+  return (
+    <ul className="list">
+      {items.map(n => (
+        <li key={n._id} className="item">
+          <div><span className="badge">{n.type}</span>{n.content}</div>
+          <div className="small">{new Date(n.createdAt).toLocaleString()}</div>
+        </li>
+      ))}
+    </ul>
+  )
+}

@@ -1,0 +1,21 @@
+{
+  "name": "insyd-notifications-poc",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm --workspace backend install && npm --workspace frontend install",
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "start": "concurrently \"npm:start:*\"",
+    "start:backend": "npm --workspace backend start",
+    "start:frontend": "npm --workspace frontend run preview"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

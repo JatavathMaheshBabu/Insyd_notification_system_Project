@@ -1,0 +1,53 @@
+
+import React, { useMemo, useState } from 'react'
+
+export default function EventForm({ users, currentUserId, onSubmit }) {
+  const [type, setType] = useState('like');
+  const [text, setText] = useState('Nice!');
+  const [targetUserId, setTargetUserId] = useState('');
+
+  const candidates = useMemo(() => (users || []).filter(u => u._id !== currentUserId), [users, currentUserId]);
+
+  const canSubmit = !!currentUserId && !!targetUserId && !!type;
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const payload = {
+      type,
+      sourceUserId: currentUserId,
+      targetUserId,
+      data: type === 'comment' || type === 'message' ? { text } : {}
+    };
+    onSubmit?.(payload);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="card">
+      <h2>Trigger Event</h2>
+
+      <label>Event Type</label>
+      <select value={type} onChange={e => setType(e.target.value)}>
+        <option value="like">like</option>
+        <option value="comment">comment</option>
+        <option value="follow">follow</option>
+        <option value="new_post">new_post</option>
+        <option value="message">message</option>
+      </select>
+
+      {(type === 'comment' || type === 'message') && (
+        <>
+          <label style={{marginTop: 8}}>Text</label>
+          <textarea rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Say something..." />
+        </>
+      )}
+
+      <label style={{marginTop: 8}}>Target User</label>
+      <select value={targetUserId} onChange={e => setTargetUserId(e.target.value)}>
+        <option value="" disabled>Choose a recipient</option>
+        {candidates.map(u => <option key={u._id} value={u._id}>{u.username}</option>)}
+      </select>
+
+      <button type="submit" disabled={!canSubmit} style={{marginTop: 12}}>Send Event</button>
+    </form>
+  )
+}
