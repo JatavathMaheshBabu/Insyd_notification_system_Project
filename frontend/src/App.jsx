@@ -37,6 +37,6 @@ function App() {
         {notifications.map(n => <li key={n._id}>{n.message}</li>)}
       </ul>
     </div>
-  );
+  )
 }
 export default App;

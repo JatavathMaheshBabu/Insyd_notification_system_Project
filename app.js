@@ -9,6 +9,7 @@ import usersRouter from './routes/users.js';
 import healthRouter from './routes/health.js';
 
 const app = express();
+const API_URL = "https://insyd-backend.onrender.com";
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(helmet());
